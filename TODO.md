@@ -46,5 +46,6 @@ Broad ideas:
 - [ ] Vehicle decelerates when there is traffic ahead
 
 Possible optimizations:
+- [ ] Figure out if (and if not why) you can use Newton's method to iteratively find point projection on curve, rather than estimate with epsilon-value
 - [ ] AABB quadtree with bounding boxes of curves to use in snapping lookup
 - [ ] Dynamically buily point and/or raycast (???) quadtree to use in snap to follow guide lookup
