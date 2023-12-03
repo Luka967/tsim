@@ -1,0 +1,50 @@
+- [ ] Move control points while holding `Ctrl`
+- [ ] Delete road lanes while holding `Alt`
+- [ ] Group road lanes into road
+ - [ ] Draw lane markings for road lanes that are parallel and close enough
+- [ ] UI skeleton
+- [ ] Remove hotkey-based controls
+- [ ] Select action with buttons:
+ - [ ] Make road lane - width, type
+ - [ ] Group road lanes
+ - [ ] Make road configuration - make multiple, parallel road lanes with same curve
+ - [ ] Delete road lane
+- Grouped roads end in half-circle U-turns
+- [ ] Select curve type with buttons:
+ - [ ] Straight - 2 clicks make straight
+ - [ ] Simple curve - 3 clicks make quadratic bezier's points
+ - [ ] Complex curve - 4 clicks make cubic bezier's points
+ - [ ] C:S's Freeform - quadratic curve, match distance between start-control and control-end points
+- [ ] Toggle snapping with buttons:
+ - [ ] Snap to grid
+ - [ ] Parallel to existing road lane
+  - [ ] Always follow existing road lane's curve
+ - [ ] Normal to road lane
+- [ ] Curve information when drawing
+ - [ ] Length
+ - [ ] Angle when applicable
+- [ ] Follow guide snapping
+ - [ ] Curve derivative
+ - [ ] Draw possible follow guides, select which ones to include in snapping
+ - [ ] Implement the following
+- [ ] Intersection creation
+ - [ ] Detect which curves are intersecting
+ - [ ] Create intersection button
+ - [ ] Splice existing curves to not intersect each other at all anymore
+ - [ ] Automatically generate curves
+ - [ ] Adjustable offsets to each intersection side
+ - [ ] Turn road markings
+ - [ ] Crosswalks?
+
+Broad ideas:
+- [ ] Represent all that shit within the road lane graph
+- [ ] Traffic lights
+- [ ] Figure out how to represent t-value in fixed distances to use in vehicle road lane following
+- [ ] Vehicle spawning, following road lanes
+- [ ] AABB quadtree representation of vehicles in traffic
+- [ ] Vehicle stops when there is traffic ahead
+- [ ] Vehicle decelerates when there is traffic ahead
+
+Possible optimizations:
+- [ ] AABB quadtree with bounding boxes of curves to use in snapping lookup
+- [ ] Dynamically buily point and/or raycast (???) quadtree to use in snap to follow guide lookup
