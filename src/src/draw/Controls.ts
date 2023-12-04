@@ -1,22 +1,42 @@
 import { Point, QuadraticCurve } from '../Geometry';
 import type Simulation from '../Simulation';
-import { RoadLane, RoadLaneType } from '../state/RoadGraph';
+import { RoadLane, RoadLaneType } from '../state/Road';
 import type { RoadSnap } from '../state/RoadGraphSystem';
 import type Draw from './Draw';
 
 enum ControlState {
-    /** Creating road: declaring start point */
+    /**
+     * [Passive: no modifiers]
+     * Declaring road start point
+     */
     PaintRoadSpoint,
-    /** Creating road: declaring end point */
+    /** Declaring road end point */
     PaintRoadEpoint,
 
-    /** Moving road: dragging start point */
+    /** Dragging road start point */
     MoveRoadSpoint,
-    /** Moving road: dragging control point */
+    /** Dragging road control point */
     MoveRoadCpoint,
-    /** Moving road: dragging end point */
-    MoveRoadEpoint
+    /** Dragging road end point */
+    MoveRoadEpoint,
+
+    /**
+     * [Passive: holding Ctrl]
+     * Selecting road's control point
+     */
+    TryMoveRoad,
+    /**
+     * [Passive: holding Alt]
+     * Delete snapped road
+     */
+    TryDeleteRoad
 };
+/** In these states no multi-click input has been triggered yet */
+const passiveStates: readonly ControlState[] = [
+    ControlState.PaintRoadSpoint,
+    ControlState.TryMoveRoad,
+    ControlState.TryDeleteRoad
+];
 
 function defaultRoadLaneWidth(type: RoadLaneType) {
     switch (type) {
@@ -40,6 +60,7 @@ export default class Controls {
     private _s_state: ControlState;
     private _s_paintRoad: RoadLane;
     private _s_moveRoad: RoadLane;
+    private _s_deleteRoad: RoadLane;
     private _s_cameraDragLast: Point;
     private _s_cameraVelocity: Point;
 
@@ -56,6 +77,7 @@ export default class Controls {
         this._s_state = ControlState.PaintRoadSpoint;
         this._s_paintRoad = null;
         this._s_moveRoad = null;
+        this._s_deleteRoad = null;
         this._s_cameraDragLast = null;
         this._s_cameraVelocity = Point.zero;
 
@@ -67,7 +89,7 @@ export default class Controls {
         document.body.addEventListener('keyup', this._onKeyChange.bind(this));
     }
 
-    private _updateMouseTrySnap(center: Point, ...ignore: RoadLane[]): RoadSnap | null {
+    private _findLaneSnap(center: Point, ...ignore: RoadLane[]): RoadSnap | null {
         let closestProjection: Point = null,
             closestSqd: number,
             closestLane: RoadLane;
@@ -100,6 +122,27 @@ export default class Controls {
             snap: false
         };
     }
+    private _findLanePoint() {
+        let closest: RoadLane = null,
+            closestState: ControlState = null,
+            closestSqd = +Infinity;
+        for (const roadLane of this.simulation.roadGraph.roads) {
+            const closestPoint = [...roadLane.curve]
+                .map((p, i) => ({
+                    p, sqd: this._mousePoint.sub(p).distSq(),
+                    state: ControlState.MoveRoadSpoint + i
+                }));
+            closestPoint.sort((a, b) => a.sqd - b.sqd);
+            if (closestPoint[0].sqd > closestSqd)
+                continue;
+            closest = roadLane;
+            closestState = closestPoint[0].state;
+            closestSqd = closestPoint[0].sqd;
+        }
+        if (closest == null || closestSqd > closest.width * closest.width)
+            return null;
+        return { closest, closestState, closestSqd };
+    }
 
     private _updateMousePoint(ev?: MouseEvent) {
         if (ev != null)
@@ -111,11 +154,11 @@ export default class Controls {
         case ControlState.MoveRoadCpoint:
         case ControlState.MoveRoadEpoint:
             if (!this._modShift)
-                this._mouseSnap = this._updateMouseTrySnap(this._mousePoint, this._s_moveRoad);
+                this._mouseSnap = this._findLaneSnap(this._mousePoint, this._s_moveRoad);
             break;
         default:
             if (!this._modShift)
-                this._mouseSnap = this._updateMouseTrySnap(this._mousePoint);
+                this._mouseSnap = this._findLaneSnap(this._mousePoint);
             break;
         }
         if (this._mouseSnap != null)
@@ -165,21 +208,23 @@ export default class Controls {
             this._s_paintRoad = null;
             this._s_state = ControlState.PaintRoadSpoint;
             break;
+        case ControlState.TryDeleteRoad:
+            if (this._s_deleteRoad == null)
+                break;
+            this.simulation.roadGraph.roads.splice(
+                this.simulation.roadGraph.roads.indexOf(this._s_deleteRoad),
+                1
+            );
+            this._s_deleteRoad = null;
+            break;
+        case ControlState.TryMoveRoad:
+            const moveRoadQuery = this._findLanePoint();
+            if (moveRoadQuery == null)
+                break;
+            this._s_moveRoad = moveRoadQuery.closest;
+            this._s_state = moveRoadQuery.closestState;
+            break;
         case ControlState.PaintRoadSpoint:
-            if (this._mouseSnap?.snap) {
-                const road = this._mouseSnap.onto;
-                const dlist = [
-                    { d: road.curve.s.sub(this._mousePoint).distSq(), go: ControlState.MoveRoadSpoint },
-                    { d: road.curve.c.sub(this._mousePoint).distSq(), go: ControlState.MoveRoadCpoint },
-                    { d: road.curve.e.sub(this._mousePoint).distSq(), go: ControlState.MoveRoadEpoint },
-                ];
-                dlist.sort((a, b) => a.d - b.d);
-                if (dlist[0].d <= road.width * road.width) {
-                    this._s_moveRoad = road;
-                    this._s_state = dlist[0].go;
-                    break;
-                }
-            }
             this._s_paintRoad = new RoadLane(
                 RoadLaneType.Car,
                 defaultRoadLaneWidth(RoadLaneType.Car),
@@ -229,6 +274,10 @@ export default class Controls {
         if (this._s_cameraDragLast != null)
             this._s_cameraDragUpdate();
 
+        // Incase state changes
+        if (this._s_deleteRoad != null)
+            this._s_deleteRoad = null;
+
         switch (this._s_state) {
         case ControlState.MoveRoadSpoint:
         case ControlState.MoveRoadCpoint:
@@ -238,6 +287,10 @@ export default class Controls {
         case ControlState.PaintRoadEpoint:
             this._s_paintRoadUpdate();
             break;
+        case ControlState.TryDeleteRoad:
+            if (this._mouseSnap?.snap)
+                this._s_deleteRoad = this._mouseSnap.onto;
+            break;
         }
     }
 
@@ -246,6 +299,16 @@ export default class Controls {
         this._modShift = ev.shiftKey;
         this._modAlt = ev.altKey;
         this._updateMousePoint();
+
+        if (!passiveStates.includes(this._s_state))
+            return;
+        // Change passive state
+        if (this._modAlt)
+            this._s_state = ControlState.TryDeleteRoad;
+        else if (this._modCtrl)
+            this._s_state = ControlState.TryMoveRoad;
+        else
+            this._s_state = ControlState.PaintRoadSpoint;
     }
 
     private _drawRoadPoints(roadLane: RoadLane) {
@@ -267,13 +330,25 @@ export default class Controls {
             this._drawSnap();
             break;
         case ControlState.PaintRoadSpoint:
-            this._drawSnap();
-            this._draw.point(this._mousePoint, 0xff0000, 20);
+            if (this._modCtrl)
+                for (const roadLane of this.simulation.roadGraph.roads)
+                    this._drawRoadPoints(roadLane);
+            else this._drawSnap();
+
+            let drawMouse = true;
+            if (this._modCtrl)
+                drawMouse = this._findLanePoint() == null;
+
+            if (drawMouse)
+                this._draw.point(this._mousePoint, 0xff0000, 20);
             break;
         case ControlState.PaintRoadEpoint:
             this._drawSnap();
             this._draw.roadLane(this._s_paintRoad);
             this._drawRoadPoints(this._s_paintRoad);
+        case ControlState.TryDeleteRoad:
+            if (this._s_deleteRoad != null)
+                this._drawRoadPoints(this._s_deleteRoad);
             break;
         }
     }

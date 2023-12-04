@@ -1,5 +1,5 @@
-- [ ] Move control points while holding `Ctrl`
-- [ ] Delete road lanes while holding `Alt`
+- [x] Move control points while holding `Ctrl`
+- [x] Delete road lanes while holding `Alt`
 - [ ] Group road lanes into road
     - [ ] Draw lane markings for road lanes that are parallel and close enough
 - [ ] UI skeleton

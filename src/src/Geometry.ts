@@ -76,7 +76,7 @@ export class Point {
 }
 
 export abstract class Curve implements Iterable<Point> {
-    /** Starting point */
+    /** Start point */
     public readonly s: Point;
     /** End point */
     public readonly e: Point;
@@ -84,7 +84,7 @@ export abstract class Curve implements Iterable<Point> {
     public constructor(s: Point, e: Point) {
         this.s = s;
         this.e = e;
-        this._rebuildLut();
+        this._lut = [];
     }
 
     /** Point lookup table for time parameter */
@@ -114,13 +114,11 @@ export abstract class Curve implements Iterable<Point> {
 
         // Narrow the accuracy with binary search
         // We figured out where the center of our search is.
-        // The leftmost and rightmost points are a half step away from adjacent LUT indices.
+        // The leftmost and rightmost points are a half step away from adjacent LUT indices
         let tl = Math.max(ci / Constant.CURVE_LUT_POINTS - 0.5 * (1 / Constant.CURVE_LUT_POINTS), 0),
             tr = Math.min(ci / Constant.CURVE_LUT_POINTS + 0.5 * (1 / Constant.CURVE_LUT_POINTS), 1);
 
-        let iter = 0;
         while (true) {
-            iter++;
             const middle = (tl + tr) / 2;
             const quarterseg = (tr - tl) / 2;
             if (quarterseg * 2 <= Constant.CURVE_PROJECT_T_EPSILON)
@@ -145,6 +143,7 @@ export class QuadraticCurve extends Curve {
     constructor(s: Point, c: Point, e: Point) {
         super(s, e);
         this.c = c;
+        this._rebuildLut();
     }
 
     public at(t: number) {
@@ -172,6 +171,7 @@ export class CubicCurve extends Curve {
         super(s, e);
         this.cl = cl;
         this.cl = cr;
+        this._rebuildLut();
     }
 
     public at(t: number) {

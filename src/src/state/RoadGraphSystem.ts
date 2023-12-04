@@ -1,5 +1,6 @@
 import type { Point } from '../Geometry';
-import { RoadGraph, RoadLane } from './RoadGraph';
+import { RoadLane } from './Road';
+import { RoadGraph } from './RoadGraph';
 
 export interface RoadSnap {
     p: Point;

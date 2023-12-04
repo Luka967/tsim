@@ -1,5 +1,5 @@
 import { Point } from '../Geometry';
-import { RoadLaneType, type RoadLane } from '../state/RoadGraph';
+import { RoadLaneType, type RoadLane } from '../state/Road';
 
 export default class Draw {
     public readonly ctx: CanvasRenderingContext2D;
