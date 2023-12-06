@@ -47,5 +47,6 @@ Broad ideas:
 
 Possible optimizations:
 - [ ] Figure out if (and if not why) you can use Newton's method to iteratively find point projection on curve, rather than estimate with epsilon-value
+- [ ] Figure out if using distance between current and more accurate computed t-value is a better binary search exit condition
 - [ ] AABB quadtree with bounding boxes of curves to use in snapping lookup
 - [ ] Dynamically buily point and/or raycast (???) quadtree to use in snap to follow guide lookup

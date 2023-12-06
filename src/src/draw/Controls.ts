@@ -97,7 +97,7 @@ export default class Controls {
         for (const lane of this.simulation.roadGraph.roads) {
             if (lane.ghost || ignore.includes(lane))
                 continue;
-            const currentProjection = lane.curve.project(center);
+            const currentProjection = lane.curve.closest(center);
             const currentSqd = currentProjection.sub(center).distSq();
             if (closestProjection != null && currentSqd >= closestSqd)
                 continue;
@@ -260,6 +260,8 @@ export default class Controls {
         case ControlState.MoveRoadEpoint:
             this._s_MoveRoadUpdate();
             this._s_moveRoad.ghost = false;
+            const parallel = new RoadLane(RoadLaneType.Car, 40, this._s_moveRoad.curve.offset(+40));
+            this.simulation.roadGraph.roads.push(parallel);
             this._s_state = ControlState.PaintRoadSpoint;
             break;
         }

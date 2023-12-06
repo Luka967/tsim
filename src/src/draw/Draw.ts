@@ -1,3 +1,4 @@
+import Constant from '../Constant';
 import { Point } from '../Geometry';
 import { RoadLaneType, type RoadLane } from '../state/Road';
 
@@ -83,6 +84,39 @@ export default class Draw {
         this.ctx.quadraticCurveTo(v.curve.c.x, v.curve.c.y, v.curve.e.x, v.curve.e.y);
         this.ctx.stroke();
         this.ctx.restore();
+        if (Constant.DRAW_CURVE_LUT)
+            for (const point of v.curve.lut)
+                this.point(point, 0x000000, v.width / 16);
+        if (Constant.DRAW_CURVE_LUT_NORM) {
+            this.ctx.save();
+            this.ctx.lineWidth = v.width / 32;
+            this.ctx.strokeStyle = this.color(0x000000);
+            for (let i = 0; i <= Constant.CURVE_LUT_POINTS; i++) {
+                const normL = v.curve.normL(i / Constant.CURVE_LUT_POINTS).mul(v.width / 2);
+                const l = v.curve.lut[i].add(normL),
+                    r = v.curve.lut[i].sub(normL);
+                this.ctx.beginPath();
+                this.ctx.moveTo(l.x, l.y);
+                this.ctx.lineTo(r.x, r.y);
+                this.ctx.closePath();
+                this.ctx.stroke();
+            }
+            this.ctx.restore();
+        }
+        if (Constant.DRAW_CURVE_POLY) {
+            this.point(v.curve.s, 0x000000, v.width / 4);
+            this.point(v.curve.c, 0x000000, v.width / 4);
+            this.point(v.curve.e, 0x000000, v.width / 4);
+            this.ctx.save();
+            this.ctx.lineWidth = v.width / 32;
+            this.ctx.strokeStyle = this.color(0x000000);
+            this.ctx.beginPath();
+            this.ctx.moveTo(v.curve.s.x, v.curve.s.y);
+            this.ctx.lineTo(v.curve.c.x, v.curve.c.y);
+            this.ctx.lineTo(v.curve.e.x, v.curve.e.y);
+            this.ctx.stroke();
+            this.ctx.restore();
+        }
         return this;
     }
 }
