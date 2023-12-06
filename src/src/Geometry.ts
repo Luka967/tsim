@@ -300,11 +300,7 @@ export class QuadraticCurve extends Curve {
         // and we raycast them. Wherever the intersection point is will be our new control point
         const intx = Point.lineintx(sOffset, sOffset.add(sNorm), eOffset, eOffset.add(eNorm));
 
-        return new QuadraticCurve(
-            this.s.add(this.normL(0).mul(d)),
-            intx,
-            this.e.add(this.normL(1).mul(d))
-        );
+        return new QuadraticCurve(sOffset, intx, eOffset);
     }
 
     public [Symbol.iterator]() {
