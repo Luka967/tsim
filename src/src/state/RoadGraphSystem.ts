@@ -1,4 +1,4 @@
-import type { Point } from '../Geometry';
+import type { Point } from '../geometry/Point';
 import { RoadLane } from './Road';
 import { RoadGraph } from './RoadGraph';
 

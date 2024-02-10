@@ -1,5 +1,6 @@
-import { Point, QuadraticCurve } from '../Geometry';
 import type Simulation from '../Simulation';
+import { Point } from '../geometry/Point';
+import { Segment } from '../geometry/Segment';
 import { RoadLane, RoadLaneType } from '../state/Road';
 import type { RoadSnap } from '../state/RoadGraphSystem';
 import type Draw from './Draw';
@@ -15,8 +16,6 @@ enum ControlState {
 
     /** Dragging road start point */
     MoveRoadSpoint,
-    /** Dragging road control point */
-    MoveRoadCpoint,
     /** Dragging road end point */
     MoveRoadEpoint,
 
@@ -51,6 +50,7 @@ export default class Controls {
     public readonly _draw: Draw;
 
     private _mouse: Point;
+    private _mousePanning: boolean;
     private _mousePoint: Point;
     private _mouseSnap: RoadSnap;
     private _modShift: boolean;
@@ -72,6 +72,7 @@ export default class Controls {
         this._draw = this.simulation.draw;
 
         this._mouse = Point.zero;
+        this._mousePanning = false;
         this._mousePoint = Point.zero;
 
         this._s_state = ControlState.PaintRoadSpoint;
@@ -97,7 +98,7 @@ export default class Controls {
         for (const lane of this.simulation.roadGraph.roads) {
             if (lane.ghost || ignore.includes(lane))
                 continue;
-            const currentProjection = lane.curve.closest(center);
+            const currentProjection = lane.line.closest(center);
             const currentSqd = currentProjection.sub(center).distSq();
             if (closestProjection != null && currentSqd >= closestSqd)
                 continue;
@@ -127,7 +128,7 @@ export default class Controls {
             closestState: ControlState = null,
             closestSqd = +Infinity;
         for (const roadLane of this.simulation.roadGraph.roads) {
-            const closestPoint = [...roadLane.curve]
+            const closestPoint = [...roadLane.line]
                 .map((p, i) => ({
                     p, sqd: this._mousePoint.sub(p).distSq(),
                     state: ControlState.MoveRoadSpoint + i
@@ -151,7 +152,6 @@ export default class Controls {
         this._mouseSnap = null;
         switch (this._s_state) {
         case ControlState.MoveRoadSpoint:
-        case ControlState.MoveRoadCpoint:
         case ControlState.MoveRoadEpoint:
             if (!this._modShift)
                 this._mouseSnap = this._findLaneSnap(this._mousePoint, this._s_moveRoad);
@@ -171,24 +171,23 @@ export default class Controls {
     }
     private _s_MoveRoadUpdate() {
         const s = this._s_state === ControlState.MoveRoadSpoint
-            ? this._mousePoint : this._s_moveRoad.curve.s;
-        const c = this._s_state === ControlState.MoveRoadCpoint
-            ? this._mousePoint : this._s_moveRoad.curve.c;
+            ? this._mousePoint : this._s_moveRoad.line.s;
         const e = this._s_state === ControlState.MoveRoadEpoint
-            ? this._mousePoint : this._s_moveRoad.curve.e;
-        this._s_moveRoad.curve = new QuadraticCurve(s, c, e);
+            ? this._mousePoint : this._s_moveRoad.line.e;
+        this._s_moveRoad.line = new Segment(s, e);
     }
     private _s_paintRoadUpdate() {
-        this._s_paintRoad.curve = new QuadraticCurve(
-            this._s_paintRoad.curve.s,
-            this._s_paintRoad.curve.s.add(this._mousePoint).div(2),
+        this._s_paintRoad.line = new Segment(
+            this._s_paintRoad.line.s,
             this._mousePoint
         );
     }
     private _s_cameraDragUpdate() {
         const camera = this.simulation.draw.camera;
         camera.pos = camera.pos.add(this._s_cameraDragLast.sub(this._mouse));
+        this._s_cameraVelocity = this._s_cameraDragLast.sub(this._mouse).mul(5);
         this._s_cameraDragLast = this._mouse;
+        this._mousePanning = true;
     }
 
     private _onMouseDown(ev: MouseEvent) {
@@ -228,8 +227,7 @@ export default class Controls {
             this._s_paintRoad = new RoadLane(
                 RoadLaneType.Car,
                 defaultRoadLaneWidth(RoadLaneType.Car),
-                new QuadraticCurve(
-                    this._mousePoint,
+                new Segment(
                     this._mousePoint,
                     this._mousePoint
                 )
@@ -247,6 +245,7 @@ export default class Controls {
 
     private _onMouseUp(ev: MouseEvent) {
         this._updateMousePoint(ev);
+        this._mousePanning = false;
 
         if (ev.button === 0)
             this._onMouseUpPrimary();
@@ -256,12 +255,11 @@ export default class Controls {
     private _onMouseUpPrimary() {
         switch (this._s_state) {
         case ControlState.MoveRoadSpoint:
-        case ControlState.MoveRoadCpoint:
         case ControlState.MoveRoadEpoint:
             this._s_MoveRoadUpdate();
             this._s_moveRoad.ghost = false;
-            const parallel = new RoadLane(RoadLaneType.Car, 40, this._s_moveRoad.curve.offset(+40));
-            this.simulation.roadGraph.roads.push(parallel);
+            // const parallel = new RoadLane(RoadLaneType.Car, 40, this._s_moveRoad.line.offset(+40));
+            // this.simulation.roadGraph.roads.push(parallel);
             this._s_state = ControlState.PaintRoadSpoint;
             break;
         }
@@ -282,7 +280,6 @@ export default class Controls {
 
         switch (this._s_state) {
         case ControlState.MoveRoadSpoint:
-        case ControlState.MoveRoadCpoint:
         case ControlState.MoveRoadEpoint:
             this._s_MoveRoadUpdate();
             break;
@@ -314,19 +311,32 @@ export default class Controls {
     }
 
     private _drawRoadPoints(roadLane: RoadLane) {
-        this._draw.point(roadLane.curve.s, 0xff0000, 20);
-        this._draw.point(roadLane.curve.c, 0xffff00, 20);
-        this._draw.point(roadLane.curve.e, 0x0000ff, 20);
+        const points = [...roadLane.line];
+        let i = 0;
+        this._draw.point(points[i++], 0xff0000, 20);
+        for (; i < points.length - 1; i++)
+            this._draw.point(points[i], 0xffff00, 20);
+        this._draw.point(points[i], 0x0000ff, 20);
     }
     private _drawSnap() {
         if (this._mouseSnap == null)
             return;
         this._drawRoadPoints(this._mouseSnap.onto);
     }
+    public animatePanning() {
+        if (this._s_cameraVelocity.distSq() <= 0.1 * 0.1) {
+            this._s_cameraVelocity = Point.zero;
+            return;
+        }
+        if (!this._mousePanning) {
+            const camera = this.simulation.draw.camera;
+            this.simulation.draw.camera.pos = camera.pos.add(this._s_cameraVelocity);
+        }
+        this._s_cameraVelocity = this._s_cameraVelocity.mul(0.9);
+    }
     public draw() {
         switch (this._s_state) {
         case ControlState.MoveRoadSpoint:
-        case ControlState.MoveRoadCpoint:
         case ControlState.MoveRoadEpoint:
             this._drawRoadPoints(this._s_moveRoad);
             this._drawSnap();

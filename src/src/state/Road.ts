@@ -1,4 +1,4 @@
-import type { QuadraticCurve } from '../Geometry';
+import type { Line } from '../geometry/Line';
 
 export enum RoadLaneType {
     Car,
@@ -9,13 +9,13 @@ export enum RoadLaneType {
 export class RoadLane {
     public type: RoadLaneType;
     public width: number;
-    public curve: QuadraticCurve;
+    public line: Line;
     public ghost: boolean;
 
-    constructor(type: RoadLaneType, width: number, curve: QuadraticCurve) {
+    constructor(type: RoadLaneType, width: number, line: Line) {
         this.type = type;
         this.width = width;
-        this.curve = curve;
+        this.line = line;
         this.ghost = false;
     }
 }

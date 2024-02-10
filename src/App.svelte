@@ -1,6 +1,8 @@
 <script lang="ts">
 import { onMount } from 'svelte';
 import Simulation from './src/Simulation';
+import { Point } from './src/geometry/Point';
+import { Segment } from './src/geometry/Segment';
 
 let canvas: HTMLCanvasElement;
 
@@ -46,6 +48,7 @@ onMount(() => {
     function frame() {
         if (canvas == null)
             return void requestAnimationFrame(frame);
+        simulation.controls.animatePanning();
         draw.reset();
         draw.clear();
 
@@ -56,6 +59,7 @@ onMount(() => {
             draw.roadLane(lane);
 
         simulation.controls.draw();
+
         requestAnimationFrame(frame);
     }
 

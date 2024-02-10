@@ -1,5 +1,8 @@
 import Constant from '../Constant';
-import { Point } from '../Geometry';
+import { Curve, QuadraticCurve } from '../geometry/Curve';
+import type { Line } from '../geometry/Line';
+import { Point } from '../geometry/Point';
+import { Segment } from '../geometry/Segment';
 import { RoadLaneType, type RoadLane } from '../state/Road';
 
 export default class Draw {
@@ -43,11 +46,11 @@ export default class Draw {
     public color(number: number) {
         return `#${number.toString(16).padStart(6, '0')}`;
     }
-    public colorRoadLane(roadLane: RoadLane) {
+    public hexColorRoadLane(roadLane: RoadLane) {
         switch (roadLane.type) {
-            case RoadLaneType.Car: return this.color(0xa9a9a9);
-            case RoadLaneType.Barrier: return this.color(0x4a4a4a);
-            case RoadLaneType.Sidewalk: return this.color(0x6a6a6a);
+            case RoadLaneType.Car: return 0xa9a9a9;
+            case RoadLaneType.Barrier: return 0x4a4a4a;
+            case RoadLaneType.Sidewalk: return 0x6a6a6a;
         }
     }
 
@@ -73,28 +76,29 @@ export default class Draw {
         this.ctx.restore();
         return this;
     }
-    public roadLane(v: RoadLane) {
-        if (v.ghost)
-            this.alpha(0.5);
+    public line(v: Line, color: number, lineWidth = 20) {
         this.ctx.save();
         this.ctx.beginPath();
-        this.ctx.lineWidth = v.width;
-        this.ctx.strokeStyle = this.colorRoadLane(v);
-        this.ctx.lineTo(v.curve.s.x, v.curve.s.y);
-        this.ctx.quadraticCurveTo(v.curve.c.x, v.curve.c.y, v.curve.e.x, v.curve.e.y);
+        this.ctx.lineWidth = lineWidth;
+        this.ctx.strokeStyle = this.color(color);
+        this.ctx.moveTo(v.s.x, v.s.y);
+        if (v instanceof Segment)
+            this.ctx.lineTo(v.e.x, v.e.y);
+        else if (v instanceof QuadraticCurve)
+            this.ctx.quadraticCurveTo(v.c.x, v.c.y, v.e.x, v.e.y);
         this.ctx.stroke();
         this.ctx.restore();
-        if (Constant.DRAW_CURVE_LUT)
-            for (const point of v.curve.lut)
-                this.point(point, 0x000000, v.width / 16);
-        if (Constant.DRAW_CURVE_LUT_NORM) {
+        if (Constant.DRAW_CURVE_LUT && v instanceof Curve)
+            for (const point of v.lut)
+                this.point(point, 0x000000, lineWidth / 16);
+        if (Constant.DRAW_CURVE_LUT_NORM && v instanceof Curve) {
             this.ctx.save();
-            this.ctx.lineWidth = v.width / 32;
+            this.ctx.lineWidth = lineWidth / 32;
             this.ctx.strokeStyle = this.color(0x000000);
             for (let i = 0; i <= Constant.CURVE_LUT_POINTS; i++) {
-                const normL = v.curve.normL(i / Constant.CURVE_LUT_POINTS).mul(v.width / 2);
-                const l = v.curve.lut[i].add(normL),
-                    r = v.curve.lut[i].sub(normL);
+                const normL = v.normL(i / Constant.CURVE_LUT_POINTS).mul(lineWidth / 2);
+                const l = v.lut[i].add(normL),
+                    r = v.lut[i].sub(normL);
                 this.ctx.beginPath();
                 this.ctx.moveTo(l.x, l.y);
                 this.ctx.lineTo(r.x, r.y);
@@ -104,19 +108,26 @@ export default class Draw {
             this.ctx.restore();
         }
         if (Constant.DRAW_CURVE_POLY) {
-            this.point(v.curve.s, 0x000000, v.width / 4);
-            this.point(v.curve.c, 0x000000, v.width / 4);
-            this.point(v.curve.e, 0x000000, v.width / 4);
+            this.point(v.s, 0x000000, lineWidth / 4);
+            if (v instanceof QuadraticCurve)
+                this.point(v.c, 0x000000, lineWidth / 4);
+            this.point(v.e, 0x000000, lineWidth / 4);
             this.ctx.save();
-            this.ctx.lineWidth = v.width / 32;
+            this.ctx.lineWidth = lineWidth / 32;
             this.ctx.strokeStyle = this.color(0x000000);
             this.ctx.beginPath();
-            this.ctx.moveTo(v.curve.s.x, v.curve.s.y);
-            this.ctx.lineTo(v.curve.c.x, v.curve.c.y);
-            this.ctx.lineTo(v.curve.e.x, v.curve.e.y);
+            this.ctx.moveTo(v.s.x, v.s.y);
+            if (v instanceof QuadraticCurve)
+                this.ctx.lineTo(v.c.x, v.c.y);
+            this.ctx.lineTo(v.e.x, v.e.y);
             this.ctx.stroke();
             this.ctx.restore();
         }
+    }
+    public roadLane(v: RoadLane) {
+        if (v.ghost)
+            this.alpha(0.5);
+        this.line(v.line, this.hexColorRoadLane(v), v.width);
         return this;
     }
 }
